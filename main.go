@@ -1,18 +1,21 @@
 package main
 
 import (
-	"cloud.google.com/go/run/apiv2/runpb"
 	"fmt"
 	"log"
 	"os"
 	"strings"
 
 	"cloud.google.com/go/run/apiv2"
+	"cloud.google.com/go/run/apiv2/runpb"
 	"github.com/urfave/cli/v2"
 )
 
 func matchImageName(a, b string) bool {
-	return strings.Split(a, ":")[0] == strings.Split(b, ":")[1]
+	return strings.Split(a, ":")[0] == strings.Split(b, ":")[0] ||
+		strings.Split(a, "@")[0] == strings.Split(b, "@")[0] ||
+		strings.Split(a, ":")[0] == strings.Split(b, "@")[0] ||
+		strings.Split(a, "@")[0] == strings.Split(b, ":")[0]
 }
 
 func main() {
@@ -39,9 +42,12 @@ func main() {
 
 			fmt.Println("Fetching the service")
 
-			service, err := client.GetService(ctx.Context, &runpb.GetServiceRequest{
-				Name: ctx.String("name"),
-			})
+			service, err := client.GetService(
+				ctx.Context,
+				&runpb.GetServiceRequest{
+					Name: ctx.String("name"),
+				},
+			)
 			if err != nil {
 				return err
 			}
@@ -51,6 +57,8 @@ func main() {
 			for _, container := range service.GetTemplate().GetContainers() {
 				for _, image := range ctx.StringSlice("image") {
 					if matchImageName(image, container.GetImage()) {
+						fmt.Printf("%s -> %s\n", container.GetImage(), image)
+
 						container.Image = image
 					}
 				}
@@ -58,9 +66,12 @@ func main() {
 
 			fmt.Println("Modifying the service")
 
-			future, err := client.UpdateService(ctx.Context, &runpb.UpdateServiceRequest{
-				Service: service,
-			})
+			future, err := client.UpdateService(
+				ctx.Context,
+				&runpb.UpdateServiceRequest{
+					Service: service,
+				},
+			)
 			if err != nil {
 				return err
 			}
